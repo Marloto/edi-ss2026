@@ -1,0 +1,23 @@
+GET http://localhost:8080/hello HTTP/1.1
+
+###
+
+GET http://localhost:8080/hello2/Ich HTTP/1.1
+
+###
+
+POST http://localhost:8080/hello3 HTTP/1.1
+Content-Type: text/plain
+
+Ich
+
+###
+
+POST http://localhost:8080/hello4 HTTP/1.1
+Content-Type: application/json
+
+{"message":  "Ich"}
+
+###
+
+GET http://localhost:8080/persons HTTP/1.1
