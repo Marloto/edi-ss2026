@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Polling Pub-Sub Demo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .message {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .message-new {
+            background-color: #d4edda;
+            animation: fadeIn 1s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #statusMessage {
+            min-height: 24px;
+            margin-bottom: 8px;
+        }
+        .polling-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .polling-active {
+            background-color: #28a745;
+            animation: blink 1s infinite;
+        }
+        .polling-inactive {
+            background-color: #dc3545;
+        }
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h1>HTTP Polling Pub-Sub Demo</h1>
+
+    <!-- Status-Zeile -->
+    <div id="statusMessage" class="text-center"></div>
+
+    <div class="row mt-2">
+        <!-- Publisher -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Nachricht senden</h5>
+                </div>
+                <div class="card-body">
+                    <form id="publishForm">
+                        <div class="mb-3">
+                            <label for="topicName" class="form-label">Topic-Name:</label>
+                            <input type="text" class="form-control" id="topicName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Nachricht:</label>
+                            <textarea class="form-control" id="message" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Senden</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscriber -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Topic abonnieren</h5>
+                </div>
+                <div class="card-body">
+                    <form id="subscribeForm">
+                        <div class="mb-3">
+                            <label for="subscribeTopicName" class="form-label">Topic-Name:</label>
+                            <input type="text" class="form-control" id="subscribeTopicName" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Abonnieren</button>
+                    </form>
+
+                    <div class="mt-3">
+                        <h6>Aktuelles Abonnement:</h6>
+                        <div id="subscriptionStatus">
+                            <span id="currentSubscription">-</span>
+                            <span id="pollingIndicator" class="polling-indicator polling-inactive"></span>
+                            <small id="pollingInfo" class="text-muted ms-2">(Poll-Intervall: 1s)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Empfangene Nachrichten</h5>
+                </div>
+                <div class="card-body">
+                    <div id="messageContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Aktuelles Abonnement
+    let currentChannelId = null;
+    let pollingInterval = null;
+
+    // Status-Element
+    const statusMessage = document.getElementById('statusMessage');
+    const pollingIndicator = document.getElementById('pollingIndicator');
+    const currentSubscription = document.getElementById('currentSubscription');
+
+    // Nachrichten senden
+    document.getElementById('publishForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const topicName = document.getElementById('topicName').value.trim();
+        const message = document.getElementById('message').value.trim();
+
+        if (!topicName || !message) return;
+
+        try {
+            const response = await fetch(`/topics/broadcast/${topicName}?message=${encodeURIComponent(message)}`, {
+                method: 'GET'
+            });
+
+            if (response.ok) {
+                document.getElementById('message').value = '';
+                showStatus('success', `Nachricht gesendet an: ${topicName}`);
+            } else {
+                showStatus('danger', `Fehler beim Senden: ${response.status}`);
+            }
+        } catch (error) {
+            showStatus('danger', `Fehler: ${error.message}`);
+        }
+    });
+
+    // Topic abonnieren
+    document.getElementById('subscribeForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const topicName = document.getElementById('subscribeTopicName').value.trim();
+
+        if (!topicName) return;
+
+        // Bestehenden Poll stoppen, falls vorhanden
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingIndicator.className = 'polling-indicator polling-inactive';
+        }
+
+        try {
+            // Registrierung durchführen
+            const response = await fetch(`/topics/register/${topicName}`, {
+                method: 'GET'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            currentChannelId = data.id;
+            currentSubscription.textContent = `${topicName} (ID: ${currentChannelId})`;
+
+            // Polling starten
+            startPolling(currentChannelId);
+
+            // Formular zurücksetzen
+            document.getElementById('subscribeTopicName').value = '';
+
+            showStatus('success', `Topic "${topicName}" registriert mit ID ${currentChannelId}`);
+        } catch (error) {
+            showStatus('danger', `Fehler beim Registrieren: ${error.message}`);
+        }
+    });
+
+    // Polling-Funktion
+    function startPolling(channelId) {
+        pollingIndicator.className = 'polling-indicator polling-active';
+
+        // Alle 1 Sekunde nach neuen Nachrichten fragen
+        pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/topics/receive/${channelId}`, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const messages = await response.json();
+
+                // Wenn Nachrichten vorhanden, diese anzeigen
+                if (messages && messages.length > 0) {
+                    messages.forEach(message => {
+                        addMessage(currentSubscription.textContent.split(' ')[0], message);
+                    });
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                showStatus('danger', `Fehler beim Abrufen: ${error.message}`);
+
+                // Bei Fehler das Polling stoppen
+                clearInterval(pollingInterval);
+                pollingIndicator.className = 'polling-indicator polling-inactive';
+                currentSubscription.textContent = '-';
+            }
+        }, 1000);
+    }
+
+    // Hilfsfunktion: Nachricht zur Liste hinzufügen
+    function addMessage(topicName, message) {
+        const messageContainer = document.getElementById('messageContainer');
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message message-new';
+        messageDiv.innerHTML = `
+                <strong>${topicName}:</strong> ${message}
+                <small class="text-muted d-block mt-1">${new Date().toLocaleTimeString()}</small>
+            `;
+
+        messageContainer.prepend(messageDiv);
+
+        // Nach 2 Sekunden die "neu"-Hervorhebung entfernen
+        setTimeout(() => {
+            messageDiv.classList.remove('message-new');
+        }, 2000);
+    }
+
+    // Hilfsfunktion: Status anzeigen
+    function showStatus(type, message) {
+        statusMessage.className = `text-${type}`;
+        statusMessage.textContent = message;
+
+        // Nach 3 Sekunden automatisch ausblenden
+        setTimeout(() => {
+            statusMessage.textContent = '';
+        }, 3000);
+    }
+</script>
+</body>
+</html>

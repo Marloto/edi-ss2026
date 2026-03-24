@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Pub-Sub Demo (Jakarta EE)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .message {
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        .message-new {
+            background-color: #d4edda;
+            animation: fadeIn 1s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #statusMessage {
+            min-height: 24px;
+            margin-bottom: 8px;
+        }
+        .connection-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .connected {
+            background-color: #28a745;
+        }
+        .disconnected {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h1>WebSocket Pub-Sub Demo</h1>
+
+    <!-- Status-Zeile -->
+    <div id="statusMessage" class="text-center"></div>
+
+    <!-- Konfiguration -->
+    <div class="card mb-3">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">WebSocket Verbindung</h5>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text">Topic:</span>
+                        <input type="text" id="topicInput" class="form-control" placeholder="mein-topic" value="test">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center">
+                        <span class="me-2">Status:</span>
+                        <span id="connectionText">Getrennt</span>
+                        <span id="connectionStatus" class="connection-status disconnected ms-2"></span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <button id="connectBtn" class="btn btn-success me-2">Verbinden</button>
+                    <button id="disconnectBtn" class="btn btn-danger" disabled>Trennen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Publisher -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Nachricht senden</h5>
+                </div>
+                <div class="card-body">
+                    <form id="publishForm">
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Nachricht:</label>
+                            <textarea class="form-control" id="message" rows="3" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" disabled>Senden</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Empfangene Nachrichten</h5>
+                </div>
+                <div class="card-body">
+                    <div id="messageContainer" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Elemente
+    const statusMessage = document.getElementById('statusMessage');
+    const topicInput = document.getElementById('topicInput');
+    const connectionText = document.getElementById('connectionText');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const publishForm = document.getElementById('publishForm');
+    const publishBtn = publishForm.querySelector('button[type="submit"]');
+    const messageContainer = document.getElementById('messageContainer');
+
+    // WebSocket
+    let socket;
+    let currentTopic;
+
+    // Event-Listener für Verbinden-Button
+    connectBtn.addEventListener('click', connectWebSocket);
+
+    // Event-Listener für Trennen-Button
+    disconnectBtn.addEventListener('click', disconnectWebSocket);
+
+    // Event-Listener für das Senden
+    publishForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const message = document.getElementById('message').value.trim();
+
+        if (!message) return;
+
+        // Nachricht senden
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(message);
+            document.getElementById('message').value = '';
+            showStatus('success', 'Nachricht gesendet');
+        } else {
+            showStatus('danger', 'Keine Verbindung. Bitte erst verbinden.');
+        }
+    });
+
+    // WebSocket verbinden
+    function connectWebSocket() {
+        const topic = topicInput.value.trim();
+
+        if (!topic) {
+            showStatus('danger', 'Bitte ein Topic eingeben');
+            return;
+        }
+
+        currentTopic = topic;
+
+        // WebSocket-URL erstellen (direkt mit Topic im Pfad)
+        const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+            window.location.host + '/socket/' + topic;
+
+        // WebSocket erstellen
+        socket = new WebSocket(wsUrl);
+
+        // Verbindungsstatus ändern
+        connectionText.textContent = 'Verbinde...';
+        connectionStatus.className = 'connection-status connecting';
+
+        // Verbindung geöffnet
+        socket.onopen = function() {
+            connectionText.textContent = 'Verbunden zu ' + topic;
+            connectionStatus.className = 'connection-status connected';
+
+            // Buttons aktualisieren
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            publishBtn.disabled = false;
+            topicInput.disabled = true;
+
+            showStatus('success', `Verbunden mit Topic "${topic}"`);
+
+            // Willkommensnachricht hinzufügen
+            addSystemMessage(`Verbunden mit Topic "${topic}"`);
+        };
+
+        // Nachricht empfangen
+        socket.onmessage = function(event) {
+            // Nachricht direkt anzeigen
+            addMessage(topic, event.data);
+        };
+
+        // Verbindung geschlossen
+        socket.onclose = function() {
+            connectionText.textContent = 'Getrennt';
+            connectionStatus.className = 'connection-status disconnected';
+
+            // Buttons aktualisieren
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            publishBtn.disabled = true;
+            topicInput.disabled = false;
+
+            showStatus('warning', 'WebSocket-Verbindung getrennt');
+            addSystemMessage('Verbindung getrennt');
+        };
+
+        // Fehler
+        socket.onerror = function(error) {
+            showStatus('danger', 'WebSocket-Fehler aufgetreten');
+            console.error('WebSocket-Fehler:', error);
+
+            // Bei Fehler die Verbindung als getrennt markieren
+            connectionText.textContent = 'Fehler';
+            connectionStatus.className = 'connection-status disconnected';
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            publishBtn.disabled = true;
+            topicInput.disabled = false;
+        };
+    }
+
+    // WebSocket trennen
+    function disconnectWebSocket() {
+        if (socket) {
+            socket.close();
+        }
+    }
+
+    // Hilfsfunktion: System-Nachricht hinzufügen
+    function addSystemMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.style.backgroundColor = '#f0f0f0';
+        messageDiv.innerHTML = `
+                <em>${message}</em>
+                <small class="text-muted d-block mt-1">${new Date().toLocaleTimeString()}</small>
+            `;
+
+        messageContainer.prepend(messageDiv);
+    }
+
+    // Hilfsfunktion: Nachricht zur Liste hinzufügen
+    function addMessage(topicName, message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message message-new';
+        messageDiv.innerHTML = `
+                <strong>${topicName}:</strong> ${message}
+                <small class="text-muted d-block mt-1">${new Date().toLocaleTimeString()}</small>
+            `;
+
+        messageContainer.prepend(messageDiv);
+
+        // Nach 2 Sekunden die "neu"-Hervorhebung entfernen
+        setTimeout(() => {
+            messageDiv.classList.remove('message-new');
+        }, 2000);
+    }
+
+    // Hilfsfunktion: Status anzeigen
+    function showStatus(type, message) {
+        statusMessage.className = `text-${type}`;
+        statusMessage.textContent = message;
+
+        // Nach 3 Sekunden automatisch ausblenden
+        setTimeout(() => {
+            statusMessage.textContent = '';
+        }, 3000);
+    }
+</script>
+</body>
+</html>

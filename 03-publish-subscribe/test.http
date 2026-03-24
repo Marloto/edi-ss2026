@@ -1,0 +1,11 @@
+GET http://localhost:8080/topics/register/test HTTP/1.1
+
+###
+
+GET http://localhost:8080/topics/broadcast/test?message=Hello, World! HTTP/1.1
+
+
+###
+
+GET http://localhost:8080/topics/receive/1 HTTP/1.1
+
