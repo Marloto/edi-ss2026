@@ -1,12 +1,14 @@
 package de.thi.informatik.edi.pubsub;
 
 import org.apache.logging.log4j.message.Message;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Service
 public class MessageBroker {
     private Map<Topic, List<Subscriber>> subscribers = new HashMap<>();
 

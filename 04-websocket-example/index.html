@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+let socket = new WebSocket("ws://localhost:8081");
+socket.addEventListener('open', function() {
+    console.log("Connection established")
+});
+
+socket.addEventListener('message', function() {
+    console.log(`Data received from server: ${event.data}`)
+});
+
+socket.addEventListener('close', function() {
+  if (event.wasClean) {
+    console.log(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+  } else {
+    console.log('Connection died');
+  }
+});
+
+socket.addEventListener('error', function() {
+  console.log(`Error`);
+});
+    </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+auth:
+  type: DISABLED
+kafka:
+  clusters:
+  - bootstrapServers: kafka1:29092,kafka2:29093,kafka3:29094
+    name: Local Test Cluster
+    properties: {}
+    readOnly: false
+rbac:
+  roles: []
