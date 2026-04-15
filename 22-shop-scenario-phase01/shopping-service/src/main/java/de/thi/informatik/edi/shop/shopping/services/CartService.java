@@ -3,6 +3,7 @@ package de.thi.informatik.edi.shop.shopping.services;
 import java.util.Optional;
 import java.util.UUID;
 
+import de.thi.informatik.edi.shop.shopping.services.messages.ArticleAddedToCartMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,12 @@ public class CartService {
 	
 	private CartRepository carts;
 	private ArticleService articles;
+    private MessageProducerService producer;
 
-	public CartService(@Autowired CartRepository carts, @Autowired ArticleService articles) {
+	public CartService(@Autowired CartRepository carts, @Autowired ArticleService articles, MessageProducerService producer) {
 		this.carts = carts;
 		this.articles = articles;
+        this.producer = producer;
 	}
 	
 	public UUID createCart() {
@@ -46,6 +49,10 @@ public class CartService {
 			throw new IllegalArgumentException("Article with ID " + id.toString() + " not found");
 		}
 		CartEntry entry = cart.get().addArticle(articleRef.get());
+
+        this.producer.publish("cart", cart.get().getId().toString(),
+                ArticleAddedToCartMessage.fromCartEntry(entry, cart.get()));
+
 		this.carts.save(cart.get());
 	}
 
