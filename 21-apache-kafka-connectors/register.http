@@ -1,0 +1,82 @@
+### Connector register
+POST http://localhost:8083/connectors
+Content-Type: application/json
+
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "secret",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "table.include.list": "public.orders",
+    "plugin.name": "pgoutput"
+  }
+}
+
+### Connector register (including SMT)
+POST http://localhost:8083/connectors
+Content-Type: application/json
+
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "secret",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "table.include.list": "public.orders",
+    "plugin.name": "pgoutput",
+
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}
+
+### Connector register (minimal)
+POST http://localhost:8083/connectors
+Content-Type: application/json
+
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "secret",
+    "database.dbname": "shop",
+    "topic.prefix": "shop",
+    "table.include.list": "public.orders",
+    "plugin.name": "pgoutput",
+    "decimal.handling.mode": "double",
+
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,ts_ms"
+  }
+}
+
+### Check Status
+GET http://localhost:8083/connectors/postgres-connector/status
+
+### Check all Connectors
+GET http://localhost:8083/connectors
+
+### Delete Connector
+DELETE http://localhost:8083/connectors/postgres-connector
