@@ -2,10 +2,12 @@ package de.thi.informatik.edi.flux;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import org.reactivestreams.Publisher;
@@ -91,14 +93,57 @@ public class WebFluxExample<T> {
 //                Flux.fromArray(new Integer[] {9, 8, 8, 9, 7, 8, 6})
 //        ).subscribe(System.out::print);
 
-        Flux<Double> a = Flux.just(1.0, 5.0, 2.0, 3.0);
-        Flux<Double> b = Flux.just(7.0, 2.0, 4.0, 9.0);
-        Flux.zip(a, b).subscribe(System.out::println);
+//        Flux<Double> a = Flux.just(1.0, 5.0, 2.0, 3.0);
+//        Flux<Double> b = Flux.just(7.0, 2.0, 4.0, 9.0);
+//        Flux.zip(a, b).subscribe(System.out::println);
+//
+//        Flux<Long> a2 = Flux.interval(Duration.ofSeconds(1));
+//        Flux<Long> b2 = Flux.interval(Duration.ofSeconds(2));
+//        Flux.combineLatest(a2, b2, (x, y) -> List.of(x, y))
+//                .subscribe(System.out::println);
+//
+//        // Flat-Map: 1:n Operator
+//        Flux.just("World", "Foo", "Bar").flatMap(el -> {
+//            List<Character> l = new ArrayList<>();
+//            for(char c : el.toCharArray()) {
+//                l.add(c);
+//            }
+//            return Flux.fromIterable(l);
+//        });
 
-        Flux<Long> a2 = Flux.interval(Duration.ofSeconds(1));
-        Flux<Long> b2 = Flux.interval(Duration.ofSeconds(2));
-        Flux.combineLatest(a2, b2, (x, y) -> List.of(x, y))
-                .subscribe(System.out::println);
+//        Flux.interval(Duration.ofSeconds(1))
+//                .buffer(3)
+//                .subscribe(System.out::println);
+//
+//        Flux.interval(Duration.ofSeconds(1))
+//                .window(3)
+//                .subscribe(win -> win
+//                        .reduce((a, b) -> a + b)
+//                        .subscribe(System.out::println));
+//
+//        Flux.interval(Duration.ofSeconds(1))
+//                .window(3)
+//                .flatMap(win -> win.reduce((a, b) -> a + b))
+//                .subscribe(System.out::println);
+
+        Flux<Integer> just = Flux.just(5, 3, 42, 1, 10, 11);
+        just.map(el -> Tuples.of(el, 1))
+            .reduce((old, cur) -> {
+                return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
+            })
+            .map(el -> el.getT1() / el.getT2())
+            .subscribe(System.out::println);
+
+        Flux.just(5, 3, 42, 1, 10, 11)
+                .window(3, 1)
+                .flatMap(part ->
+                    part
+                        .map(el -> Tuples.of(el, 1))
+                        .reduce((old, cur) -> {
+                            return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
+                        })
+                        .map(el -> (double)el.getT1() / (double)el.getT2())
+                ).subscribe(System.out::println);
 
         // Prevent stopping of main thread
 		System.in.read();
