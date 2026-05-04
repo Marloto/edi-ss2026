@@ -24,7 +24,7 @@ public class StorageExample {
         // (ID, Menge)
         Flux<Tuple2<String, Integer>> salesStream = Flux.interval(Duration.ofMillis(1000))
                 .map(i -> Tuples.of(
-                        Long.valueOf(i % 3).toString(),
+                        Long.valueOf(i % 3 + 1).toString(),
                         (int) (Math.random() * 5 + 1)));
 
         // Wie könnte man die statischen Produkt-Daten mit den Sales Stream kombinieren?
@@ -48,7 +48,8 @@ public class StorageExample {
         Flux.combineLatest(reduce, salesStream,
                 (products, sales) ->
                         // sales.getT1 -> ID, sales.getT2 -> count
-                        Tuples.of(sales.getT1(), sales.getT2(), products.get(sales.getT1())))
+                        Tuples.of(sales.getT1(), sales.getT2(),
+                                products.containsKey(sales.getT1()) ? products.get(sales.getT1()) : "Unknown"))
                 .subscribe(el -> System.out.println(el.getT3() + " " +
                         el.getT2() + "x verkauft"));
 
