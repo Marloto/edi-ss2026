@@ -13,6 +13,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
 import reactor.util.function.Tuple2;
+import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
 @Service
@@ -36,7 +37,6 @@ public class MessageBrokerService {
             System.out.println("Connecting to broker: " + broker);
             client.connect(connOpts);
             System.out.println("Connected");
-
         } catch (MqttException me) {
             System.out.println("reason " + me.getReasonCode());
             System.out.println("msg " + me.getMessage());
@@ -46,5 +46,17 @@ public class MessageBrokerService {
             me.printStackTrace();
         }
 	}
+
+    public Flux<Tuple2<String, String>> subscribeToTopic(String topic) {
+        Sinks.Many<Tuple2<String, String>> sink = Sinks.many().multicast().onBackpressureBuffer();
+        try {
+            client.subscribe("servers/#", (t, msg) -> {
+                sink.tryEmitNext(Tuples.of(t, msg.toString()));
+            });
+        } catch (MqttException e) {
+            throw new RuntimeException(e);
+        }
+        return sink.asFlux();
+    }
 
 }

@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 @Service
 public class ExampleService {
@@ -15,6 +16,9 @@ public class ExampleService {
 
 	@PostConstruct
 	public void init() {
-
-	}
+        Flux<DataEvent> dataEvents = this.service.getDataEvents();
+        dataEvents
+                .filter(data -> "cpu-usage".equals(data.getType()))
+                .subscribe(System.out::println);
+    }
 }

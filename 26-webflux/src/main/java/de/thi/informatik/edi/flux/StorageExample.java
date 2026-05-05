@@ -33,23 +33,30 @@ public class StorageExample {
         // Banane 2x Verkauft
         // ...
 
-        Mono<Map<String, String>> reduce = productMasterData
-                .map(el -> {
-                    Map<String, String> map = new HashMap<>();
-                    map.put(el.getT1(), el.getT2());
-                    return map;
-                }).reduce((old, cur) -> {
-                    for (Map.Entry<String, String> entry : cur.entrySet()) {
-                        old.put(entry.getKey(), entry.getValue());
-                    }
+//        Mono<Map<String, String>> reduce = productMasterData
+//                .map(el -> {
+//                    Map<String, String> map = new HashMap<>();
+//                    map.put(el.getT1(), el.getT2());
+//                    return map;
+//                }).reduce((old, cur) -> {
+//                    for (Map.Entry<String, String> entry : cur.entrySet()) {
+//                        old.put(entry.getKey(), entry.getValue());
+//                    }
+//                    return old;
+//                });
+
+//Mono<Map<String, String>> reduce =
+        Flux<HashMap<String, String>> productMap = productMasterData
+                .scan(new HashMap<String, String>(), (old, cur) -> {
+                    old.put(cur.getT1(), cur.getT2());
                     return old;
                 });
-
-        Flux.combineLatest(reduce, salesStream,
+        productMap.subscribe(System.out::println);
+        Flux.combineLatest(productMap, salesStream,
                 (products, sales) ->
                         // sales.getT1 -> ID, sales.getT2 -> count
                         Tuples.of(sales.getT1(), sales.getT2(),
-                                products.containsKey(sales.getT1()) ? products.get(sales.getT1()) : "Unknown"))
+                                products.getOrDefault(sales.getT1(), "Unknown")))
                 .subscribe(el -> System.out.println(el.getT3() + " " +
                         el.getT2() + "x verkauft"));
 

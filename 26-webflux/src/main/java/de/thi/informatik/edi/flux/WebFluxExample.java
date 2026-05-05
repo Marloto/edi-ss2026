@@ -126,24 +126,39 @@ public class WebFluxExample<T> {
 //                .flatMap(win -> win.reduce((a, b) -> a + b))
 //                .subscribe(System.out::println);
 
-        Flux<Integer> just = Flux.just(5, 3, 42, 1, 10, 11);
-        just.map(el -> Tuples.of(el, 1))
-            .reduce((old, cur) -> {
-                return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
-            })
+
+        Flux.just(5, 3, 42, 1, 10, 11)
+            .reduce(Tuples.of(0,0), (old, cur) ->
+                Tuples.of(old.getT1() + cur, old.getT2() + 1))
             .map(el -> el.getT1() / el.getT2())
             .subscribe(System.out::println);
 
         Flux.just(5, 3, 42, 1, 10, 11)
-                .window(3, 1)
-                .flatMap(part ->
-                    part
-                        .map(el -> Tuples.of(el, 1))
-                        .reduce((old, cur) -> {
-                            return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
-                        })
-                        .map(el -> (double)el.getT1() / (double)el.getT2())
-                ).subscribe(System.out::println);
+            .map(el -> Tuples.of(el, 1))
+            .reduce((old, cur) ->
+                Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1))
+            .map(el -> el.getT1() / el.getT2())
+            .subscribe(System.out::println);
+//
+
+//        Flux<Integer> just = Flux.just(5, 3, 42, 1, 10, 11);
+//        just.map(el -> Tuples.of(el, 1))
+//            .reduce((old, cur) -> {
+//                return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
+//            })
+//            .map(el -> el.getT1() / el.getT2())
+//            .subscribe(System.out::println);
+//
+//        Flux.just(5, 3, 42, 1, 10, 11)
+//                .window(3, 1)
+//                .flatMap(part ->
+//                    part
+//                        .map(el -> Tuples.of(el, 1))
+//                        .reduce((old, cur) -> {
+//                            return Tuples.of(old.getT1() + cur.getT1(), old.getT2() + 1);
+//                        })
+//                        .map(el -> (double)el.getT1() / (double)el.getT2())
+//                ).subscribe(System.out::println);
 
         // Prevent stopping of main thread
 		System.in.read();
