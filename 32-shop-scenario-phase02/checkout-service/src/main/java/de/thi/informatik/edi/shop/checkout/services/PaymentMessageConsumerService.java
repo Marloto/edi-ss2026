@@ -23,44 +23,76 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.thi.informatik.edi.shop.checkout.services.messages.PaymentMessage;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import reactor.core.publisher.Flux;
 
 @Service
-public class PaymentMessageConsumerService implements MessageConsumerService.MessageConsumerServiceHandler {
+public class PaymentMessageConsumerService {
 
 	private static Logger logger = LoggerFactory.getLogger(PaymentMessageConsumerService.class);
-
+	
+	@Value("${kafka.servers:localhost:9092}")
+	private String servers;
+	@Value("${kafka.group:checkout}")
+	private String group;
 	@Value("${kafka.paymentTopic:payment}")
 	private String topic;
 	
-	private MessageConsumerService consumer;
-	private Flux<PaymentMessage> messages;
+	private KafkaConsumer<String, String> consumer;
+	private boolean running;
+	private ShoppingOrderService orders;
 
-	public PaymentMessageConsumerService(@Autowired MessageConsumerService consumer) {
-		this.consumer = consumer;
+	private TaskExecutor executor;
+	
+	public PaymentMessageConsumerService(@Autowired ShoppingOrderService orders, @Autowired TaskExecutor executor) {
+		this.orders = orders;
+		this.executor = executor;
+		this.running = true;
 	}
-
-	private PaymentMessage apply(ConsumerRecord<String, String> record) {
-		String value = record.value();
+	
+	@PostConstruct
+	private void init() throws UnknownHostException {
+		Properties config = new Properties();
+		config.put("client.id", InetAddress.getLocalHost().getHostName() + "-payment");
+		config.put("bootstrap.servers", servers);
+		config.put("group.id", group);
+		config.put("key.deserializer", StringDeserializer.class.getName());
+		config.put("value.deserializer", StringDeserializer.class.getName());
+		logger.info("Connect to " + servers + " as " + config.getProperty("client.id") + "@" + group);
+		this.consumer = new KafkaConsumer<>(config);
+		logger.info("Subscribe to " + topic);
+		this.consumer.subscribe(List.of(topic));
+		this.executor.execute(() -> {
+			while (running) {
+				try {					
+					ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
+					records.forEach(el -> handle(el));
+					consumer.commitSync();
+				} catch(Exception e) {
+					e.printStackTrace();
+				}
+			}				
+		});
+	}
+	
+	private void handle(ConsumerRecord<String, String> el) {
+		String value = el.value();
 		logger.info("Received message " + value);
 		try {
-			return new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).readValue(value, PaymentMessage.class);
+			PaymentMessage message = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).readValue(value, PaymentMessage.class);
+			logger.info("Update order " + message.getOrderRef());
+			if("PAYED".equals(message.getStatus())) {				
+				this.orders.updateOrderIsPayed(message.getOrderRef());
+			} else if("PAYABLE".equals(message.getStatus())) {
+				logger.info("Ignore status change " + message.getStatus() + " for order " + message.getOrderRef() + " and payment " + message.getId());
+			} else {
+				logger.info("Unknown status change " + message.getStatus() + " for order " + message.getOrderRef() + " and payment " + message.getId());
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return new PaymentMessage();
 	}
 
-	@PostConstruct
-	private void init() {
-		this.messages = this.consumer.register(topic, this).map(this::apply);
-	}
-
-	public Flux<PaymentMessage> getMessages() {
-		return messages;
-	}
-
-	@Override
-	public void handle(String topic, String key, String value) {
+	@PreDestroy
+	private void shutDown() {
+		this.running = false;
 	}
 }

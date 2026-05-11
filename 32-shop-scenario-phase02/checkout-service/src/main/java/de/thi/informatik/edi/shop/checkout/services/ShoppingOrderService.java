@@ -3,7 +3,6 @@ package de.thi.informatik.edi.shop.checkout.services;
 import java.util.Optional;
 import java.util.UUID;
 
-import de.thi.informatik.edi.shop.checkout.services.messages.CreatedCartMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,53 +15,15 @@ import jakarta.annotation.PostConstruct;
 public class ShoppingOrderService {
 	private ShoppingOrderRepository orders;
 	private ShoppingOrderMessageProducerService messages;
-    private final CartMessageConsumerService cartMessages;
-    private final PaymentMessageConsumerService paymentMessages;
-    private final ShippingMessageConsumerService shippingMessages;
 
-    public ShoppingOrderService(@Autowired ShoppingOrderRepository orders, 
-			@Autowired ShoppingOrderMessageProducerService messages,
-			@Autowired CartMessageConsumerService cartMessages,
-			@Autowired PaymentMessageConsumerService paymentMessages,
-			@Autowired ShippingMessageConsumerService shippingMessages) {
+	public ShoppingOrderService(@Autowired ShoppingOrderRepository orders, 
+			@Autowired ShoppingOrderMessageProducerService messages) {
 		this.orders = orders;
 		this.messages = messages;
-        this.cartMessages = cartMessages;
-        this.paymentMessages = paymentMessages;
-        this.shippingMessages = shippingMessages;
-    }
+	}
 	
 	@PostConstruct
 	private void init() {
-		// Anbindung an Cart-Messages
-		this.cartMessages.getCreatedCartMessages().subscribe(message -> {
-			this.createOrderWithCartRef(message.getId());
-		});
-		this.cartMessages.getArticleAddedToCartMessages().subscribe(message -> {
-			this.addItemToOrderByCartRef(
-				message.getId(),
-				message.getArticle(),
-				message.getName(),
-				message.getPrice(),
-				message.getCount());
-		});
-		this.cartMessages.getDeleteArticleFromCartMessages().subscribe(message -> {
-			this.deleteItemFromOrderByCartRef(
-				message.getId(),
-				message.getArticle());
-		});
-		// Anbindung an Payment-Messages
-		this.paymentMessages.getMessages()
-				.filter(el -> "PAYED".equals(el.getStatus()))
-				.subscribe(message -> {
-					this.updateOrderIsPayed(message.getOrderRef());
-				});
-		// Anbindung an Shipping-Messages
-		this.shippingMessages.getMessages()
-				.filter(el -> "SHIPPED".equals(el.getStatus()))
-				.subscribe(message -> {
-					this.updateOrderIsShipped(message.getOrderRef());
-				});
 	}
 	
 	public void addItemToOrderByCartRef(UUID cartRef, UUID article, String name, double price, int count) {

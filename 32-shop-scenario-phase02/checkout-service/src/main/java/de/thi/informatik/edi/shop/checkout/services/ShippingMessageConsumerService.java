@@ -3,7 +3,6 @@ package de.thi.informatik.edi.shop.checkout.services;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,42 +15,43 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import de.thi.informatik.edi.shop.checkout.services.messages.ShippingMessage;
-import reactor.core.publisher.Flux;
 
 @Service
-public class ShippingMessageConsumerService implements MessageConsumerService.MessageConsumerServiceHandler {
+public class ShippingMessageConsumerService extends MessageConsumerService {
 
 	private static Logger logger = LoggerFactory.getLogger(ShippingMessageConsumerService.class);
 
 	@Value("${kafka.shippingTopic:shipping}")
 	private String topic;
-
-    private final MessageConsumerService consumer;
-	private Flux<ShippingMessage> messages;
-
-	public ShippingMessageConsumerService(@Autowired MessageConsumerService consumer) {
-        this.consumer = consumer;
-    }
-
-	@PostConstruct
-	private void init() {
-		this.messages = this.consumer.register(topic, this).map(record -> {
-			String value = record.value();
-			logger.info("Received message " + value);
-			try {
-				ShippingMessage message = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).readValue(value, ShippingMessage.class);
-			} catch (Exception e) {
-				e.printStackTrace();
+	
+	private ShoppingOrderService orders;
+	
+	public ShippingMessageConsumerService(@Autowired ShoppingOrderService orders, @Autowired TaskExecutor executor) {
+		super(executor);
+		this.orders = orders;
+	}
+	
+	protected void handle(ConsumerRecord<String, String> el) {
+		String value = el.value();
+		logger.info("Received message " + value);
+		try {
+			ShippingMessage message = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false).readValue(value, ShippingMessage.class);
+			logger.info("Update order " + message.getOrderRef());
+			if("SHIPPED".equals(message.getStatus())) {				
+				this.orders.updateOrderIsShipped(message.getOrderRef());
+			} else {
+				logger.info("Unknown shipping status " + message.getStatus() + " for order " + message.getOrderRef());
 			}
-			return new ShippingMessage();
-		});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
-
-	public Flux<ShippingMessage> getMessages() {
-		return messages;
+	
+	protected String getClientId() throws UnknownHostException {
+		return InetAddress.getLocalHost().getHostName() + "-shipping";
 	}
-
-	@Override
-	public void handle(String topic, String key, String value) {
+	
+	protected String getTopic() {
+		return topic;
 	}
 }
