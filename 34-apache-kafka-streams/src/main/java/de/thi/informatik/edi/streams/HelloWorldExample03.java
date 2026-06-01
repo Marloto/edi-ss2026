@@ -15,7 +15,9 @@ public class HelloWorldExample03 {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-		
+        builder.stream("hello-world")
+                .mapValues((value) -> "Hello, " + value)
+                .to("hello-world-answer");
 
 		Properties config = new Properties();
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev1");

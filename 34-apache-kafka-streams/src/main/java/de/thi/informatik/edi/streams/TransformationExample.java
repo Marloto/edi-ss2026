@@ -17,7 +17,14 @@ public class TransformationExample {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-
+        builder.<Void, String>stream("hello-world")
+                .split()
+                .branch((key, value) -> !value.isBlank(), Branched.withConsumer(subStream -> subStream
+                        .mapValues(value -> "Hello, " + value)
+                        .to("hello-world-answer")))
+                .defaultBranch(Branched.withConsumer(ks -> ks
+                        .mapValues(value -> "Hello, nobody!")
+                        .to("hello-world-answer")));
 
 		Properties config = new Properties();
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev1");

@@ -18,18 +18,17 @@ public class MergeExample {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-
-
-		Map<String, KStream<Void, String>> map = builder.<Void, String>stream("hello-world")
-				.split(Named.as("Branch-"))
-				.branch((key, value) -> !value.isBlank(), Branched.as("A"))
-				.defaultBranch(Branched.as("B"));
-
-		map.get("Branch-B")
-				.mapValues(value -> "unknown")
-				.merge(map.get("Branch-A"))
-				.mapValues(value -> "Hello " + value + "!")
-				.to("hello-world-answer");
+        Map<String, KStream<Void, String>> branches = builder.<Void, String>stream("hello-world")
+                .split(Named.as("Branch-"))
+                .branch((key, value) -> !value.isBlank(), Branched.as("A"))
+                .defaultBranch(Branched.as("B"));
+        branches.get("Branch-B")
+                .mapValues(value -> "nobody")
+                .merge(branches.get("Branch-A"))
+                .flatMapValues(value -> Arrays.asList(value.split(",")))
+                .mapValues(value -> value.trim())
+                .mapValues(value -> "Hello, " + value)
+                .to("hello-world-answer");
 
 		
 

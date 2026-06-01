@@ -14,12 +14,15 @@ import org.apache.kafka.streams.kstream.Consumed;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Produced;
 
 public class SerdesExample {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-
+        builder.stream("hello-world-2", Consumed.with(Serdes.String(), mySerdes()))
+                .mapValues((k, v) -> new IdObject(v.getMsg() + "-copy"))
+                .to("hello-world-3", Produced.with(Serdes.String(), mySerdes()));
 
 		Properties config = new Properties();
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev1");

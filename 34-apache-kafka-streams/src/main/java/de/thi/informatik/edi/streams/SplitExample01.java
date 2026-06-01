@@ -13,13 +13,13 @@ public class SplitExample01 {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-		builder.<Void, String>stream("hello-world")
-				.split()
-					.branch((key, value) -> !value.isBlank(),
-							Branched.withConsumer(subStream -> subStream.to("hello-world-answer")))
-					.defaultBranch(
-							Branched.withConsumer(subStream -> subStream.to("hello-world-failed")));
-
+        builder.<Void, String>stream("hello-world")
+            .split()
+                .branch((key, value) -> !value.isBlank(), Branched.withConsumer(subStream -> subStream
+                        .to("hello-world-answer")))
+                .defaultBranch(Branched.withConsumer(ks -> ks
+                        .to("hello-world-failed")));
+		
 		Properties config = new Properties();
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev1");
 		config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");

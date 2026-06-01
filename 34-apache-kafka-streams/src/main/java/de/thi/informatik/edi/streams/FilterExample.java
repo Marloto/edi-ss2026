@@ -12,7 +12,9 @@ public class FilterExample {
 	public static void main(String[] args) {
 		StreamsBuilder builder = new StreamsBuilder();
 
-		
+        builder.<Void, String>stream("hello-world")
+                .filter((key, value) -> !value.isBlank())
+                .to("hello-world-answer");
 		
 		Properties config = new Properties();
 		config.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev1");

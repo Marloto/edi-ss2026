@@ -9,35 +9,39 @@ import org.apache.kafka.streams.kstream.Repartitioned;
 
 import java.util.Properties;
 
-/**
- * # Topic mit mehr Partitionen erstellen
- * kafka-topics --create --topic input-topic-multi \
- *   --bootstrap-server localhost:9092 \
- *   --partitions 4 \
- *   --replication-factor 1
- *
- * # Oder bestehendes Topic erweitern (falls möglich)
- * kafka-topics --alter --topic input-topic \
- *   --bootstrap-server localhost:9092 \
- *   --partitions 4
- * mvn exec:java -Dexec.mainClass="de.thi.informatik.edi.streams.RepartitionExperiment" -Dexec.args="PROZESS-1"
- * mvn exec:java -Dexec.mainClass="de.thi.informatik.edi.streams.RepartitionExperiment" -Dexec.args="PROZESS-2"
- *
- * # Remove if wrong partition
- * kafka-topics --list --bootstrap-server localhost:9092 | grep repartition-demo
- * kafka-topics --delete --topic repartition-demo-repartitioned-topic-repartition \
- *   --bootstrap-server localhost:9092
- *
- * docker compose exec kafka kafka-console-producer.sh --topic input-topic --bootstrap-server localhost:9092
- *
- * docker compose exec kafka kafka-console-consumer.sh \
- *   --topic repartition-demo-KSTREAM-AGGREGATE-STATE-STORE-0000000007-changelog \
- *   --bootstrap-server localhost:9092 \
- *   --from-beginning \
- *   --property "print.key=true" \
- *   --property "key.separator= → " \
- *   --value-deserializer "org.apache.kafka.common.serialization.LongDeserializer"
- */
+/*********
+   # Topic mit mehr Partitionen erstellen
+   docker compose exec -it kafka /opt/kafka/bin/kafka-topics.sh --create --topic input-topic \
+     --bootstrap-server localhost:9092 \
+     --partitions 4 \
+     --replication-factor 1
+   docker compose exec -it kafka /opt/kafka/bin/kafka-topics.sh --create --topic input-topic-multi \
+     --bootstrap-server localhost:9092 \
+     --partitions 4 \
+     --replication-factor 1
+  
+   # Oder bestehendes Topic erweitern (falls möglich)
+   docker compose exec -it kafka /opt/kafka/bin/kafka-topics.sh --alter --topic input-topic \
+     --bootstrap-server localhost:9092 \
+     --partitions 4
+   mvn exec:java -Dexec.mainClass="de.thi.informatik.edi.streams.RepartitionExperiment" -Dexec.args="PROZESS-1"
+   mvn exec:java -Dexec.mainClass="de.thi.informatik.edi.streams.RepartitionExperiment" -Dexec.args="PROZESS-2"
+  
+   # Remove if wrong partition
+   docker compose exec -it kafka /opt/kafka/bin/kafka-topics.sh --list --bootstrap-server localhost:9092 | grep repartition-demo
+   docker compose exec -it kafka /opt/kafka/bin/kafka-topics.sh --delete --topic repartition-demo-repartitioned-topic-repartition \
+     --bootstrap-server localhost:9092
+  
+   docker compose exec kafka /opt/kafka/bin/kafka-console-producer.sh --topic input-topic --bootstrap-server localhost:9092
+  
+   docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
+     --topic repartition-demo-KSTREAM-AGGREGATE-STATE-STORE-0000000007-changelog \
+     --bootstrap-server localhost:9092 \
+     --from-beginning \
+     --property "print.key=true" \
+     --property "key.separator= → " \
+     --value-deserializer "org.apache.kafka.common.serialization.LongDeserializer"
+ *******/
 
 public class RepartitionExperiment {
   public static void main(String[] args) {

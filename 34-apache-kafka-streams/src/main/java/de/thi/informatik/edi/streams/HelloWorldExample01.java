@@ -17,9 +17,10 @@ public class HelloWorldExample01 {
 		// Erzeugen des Builders
 		StreamsBuilder builder = new StreamsBuilder();
 
-		
+        builder.<Object, String>stream("hello-world")
+            .foreach((key, value) -> System.out.println(key + ": " + value));
 
-		Topology build = builder.build();
+        Topology build = builder.build();
 
 		{
 			Properties config = new Properties();
